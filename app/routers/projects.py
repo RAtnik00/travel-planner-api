@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.services.artic import get_artwork_by_id
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -21,6 +22,27 @@ def create_project(
         description=project_data.description,
         start_date=project_data.start_date,
     )
+
+    seen_external_ids = set()
+
+    for place_data in project_data.places:
+        artwork = get_artwork_by_id(place_data.external_id)
+
+        if artwork["external_id"] in seen_external_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate external place in project creation request",
+            )
+
+        seen_external_ids.add(artwork["external_id"])
+
+        project.places.append(
+            models.ProjectPlace(
+                external_id=artwork["external_id"],
+                title=artwork["title"],
+                notes=place_data.notes,
+            )
+        )
 
     db.add(project)
     db.commit()
