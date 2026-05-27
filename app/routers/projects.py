@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -52,8 +52,18 @@ def create_project(
 
 
 @router.get("", response_model=list[schemas.ProjectResponse])
-def list_projects(db: Session = Depends(get_db)):
-    return db.query(models.TravelProject).all()
+def list_projects(
+    completed: bool | None = None,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.TravelProject)
+
+    if completed is not None:
+        query = query.filter(models.TravelProject.completed == completed)
+
+    return query.offset(skip).limit(limit).all()
 
 
 @router.get("/{project_id}", response_model=schemas.ProjectResponse)

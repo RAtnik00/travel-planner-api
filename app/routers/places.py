@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -81,14 +81,23 @@ def add_place_to_project(
 
 
 @router.get("", response_model=list[schemas.PlaceResponse])
-def list_project_places(project_id: int, db: Session = Depends(get_db)):
+def list_project_places(
+    project_id: int,
+    visited: bool | None = None,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
     get_project_or_404(project_id, db)
 
-    return (
-        db.query(models.ProjectPlace)
-        .filter(models.ProjectPlace.project_id == project_id)
-        .all()
+    query = db.query(models.ProjectPlace).filter(
+        models.ProjectPlace.project_id == project_id,
     )
+
+    if visited is not None:
+        query = query.filter(models.ProjectPlace.visited == visited)
+
+    return query.offset(skip).limit(limit).all()
 
 
 @router.get("/{place_id}", response_model=schemas.PlaceResponse)
